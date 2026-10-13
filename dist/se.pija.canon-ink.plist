@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>se.pija.canon-ink</string>
+  <!-- Write to a temp file and rename, so the filter never reads half a file. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>G=/Library/Printers/Gutenprint; "$G/bin/canon-ink" --cups 192.168.1.191 2&gt;"$G/var/ink-levels.tmp" &amp;&amp; mv -f "$G/var/ink-levels.tmp" "$G/var/ink-levels"</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>UserName</key>
+  <string>_lp</string>
+</dict>
+</plist>

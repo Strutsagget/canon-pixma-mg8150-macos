@@ -7,6 +7,22 @@ folder holds a native arm64 build of the open-source Gutenprint driver instead.
 - `dist/Canon-PIXMA-MG8150.ppd` – printer description (A4 default, absolute filter path)
 - `install.sh` – installs the driver and adds the queue (`sudo ./install.sh`)
 
+## Ink levels
+
+The printer has no SNMP, so macOS can't read supplies on its own. `src/canon-ink.c`
+asks the printer over Canon's BJNP protocol (UDP 8611, command `0x20`) and parses
+`CIR:` (remaining %) and `CTK:` (`IO` = ink out). The PPD's filter is the wrapper
+`rastertocanon-mg8150`, which runs it before and after Gutenprint and emits
+`ATTR: marker-*` lines, so Supply Levels updates on every print. From a terminal:
+
+```bash
+/Library/Printers/Gutenprint/bin/canon-ink 192.168.1.191
+```
+
+Build: `clang -O2 -Wall -Wextra -o dist/Gutenprint/bin/canon-ink src/canon-ink.c`
+
+## Network
+
 The printer is reached over Wi-Fi through LPD (`lpd://192.168.1.191/`). If its IP
 changes, give it a DHCP reservation in the router, or update `PRINTER_URI` in
 `install.sh` and run it again.

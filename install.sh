@@ -20,6 +20,18 @@ chown -R root:wheel /Library/Printers/Gutenprint
 chmod -R go-w /Library/Printers/Gutenprint
 xattr -r -d com.apple.quarantine /Library/Printers/Gutenprint 2>/dev/null || true
 
+# Ink-level poller. Filters can't reach the network (CUPS sandbox), so a
+# LaunchDaemon caches the levels where the filter can read them.
+mkdir -p /Library/Printers/Gutenprint/var
+chown _lp:_lp /Library/Printers/Gutenprint/var
+PLIST=/Library/LaunchDaemons/se.pija.canon-ink.plist
+launchctl bootout system "$PLIST" 2>/dev/null || true
+PRINTER_HOST="${PRINTER_URI#lpd://}"; PRINTER_HOST="${PRINTER_HOST%%/*}"
+sed "s#192\.168\.1\.191#$PRINTER_HOST#" "$HERE/dist/se.pija.canon-ink.plist" > "$PLIST"
+chown root:wheel "$PLIST"
+chmod 644 "$PLIST"
+launchctl bootstrap system "$PLIST"
+
 # 2. Printer queue. lpadmin copies the PPD into /etc/cups/ppd itself.
 lpadmin -p "$PRINTER_NAME" -E \
   -v "$PRINTER_URI" \
