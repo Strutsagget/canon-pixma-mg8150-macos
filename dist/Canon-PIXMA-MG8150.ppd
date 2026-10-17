@@ -34,6 +34,8 @@
 *TTRasterizer:	Type42
 *cupsVersion:	1.2
 *cupsFilter:	"application/vnd.cups-raster 100 /Library/Printers/Gutenprint/libexec/cups/filter/rastertocanon-mg8150"
+*cupsFilter:	"application/vnd.cups-command 0 /Library/Printers/Gutenprint/libexec/cups/filter/commandtocanon-mg8150"
+*cupsCommands:	"ReportLevels"
 *cupsICCProfile Gray../Grayscale:	"/System/Library/ColorSync/Profiles/sRGB Profile.icc"
 *cupsICCProfile RGB../Color:	"/System/Library/ColorSync/Profiles/sRGB Profile.icc"
 *cupsICCProfile CMYK../Color:	"/System/Library/ColorSync/Profiles/Generic CMYK Profile.icc"
