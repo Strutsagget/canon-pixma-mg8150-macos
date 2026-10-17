@@ -18,6 +18,17 @@ folder holds a native arm64 build of the open-source Gutenprint driver instead.
   `StpGCRUpper=1000`, `StpBlackTrans=1000`. Gutenprint's default mixed
   pigment black into every color, which made prints muddy and banded.
 
+## Canon colors (3D LUT)
+
+In Density mode Gutenprint is linear (ink = 1 - value), so Canon's color
+rendering is cloned with a lookup table: `tools/buildlut.py chart` writes a
+9x9x9 patch chart, Canon's `cifmg8100` (Docker, see below) renders it,
+`tools/buildlut.py lut` measures the CMY ink per patch and inverts it into
+`dist/Gutenprint/share/mg8150-canon.lut`. `src/rgblut.c` applies it to the
+CUPS raster in front of Gutenprint (wrapper filter; any non-default
+`StpColorCorrection` skips it). Check with `tools/colorchart.py` +
+`tools/bjpatches.py`. Build: `clang -O2 -o dist/Gutenprint/bin/rgblut src/rgblut.c -lcups`
+
 ## Debugging tools
 
 `tools/canon-ref/build.sh` builds Canon's cnijfilter 3.40 (MG8100 = model 377)
