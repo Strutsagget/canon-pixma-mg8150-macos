@@ -4,8 +4,26 @@
 #
 # CUPS sandboxes filters without network access, so the levels are fetched
 # by the se.pija.canon-ink LaunchDaemon and we only replay its cached output.
+#
+# With the default Density color mode Gutenprint is linear, so a 3D LUT
+# measured from Canon's own driver (tools/buildlut.py) is applied first to
+# get Canon's colors. Any other StpColorCorrection skips the LUT.
+set -o pipefail
 G=/Library/Printers/Gutenprint
 CACHE=$G/var/ink-levels
+LUT=$G/share/mg8150-canon.lut
 
 [ -r "$CACHE" ] && cat "$CACHE" >&2
-exec "$G/libexec/cups/filter/rastertogutenprint.5.3" "$@"
+[ -n "$6" ] && exec < "$6"
+
+case " $5 " in
+  *StpColorCorrection=Density*) use_lut=1 ;;
+  *StpColorCorrection=*) use_lut=0 ;;
+  *) use_lut=1 ;;
+esac
+
+if [ "$use_lut" = 1 ] && [ -r "$LUT" ]; then
+  "$G/bin/rgblut" "$LUT" | "$G/libexec/cups/filter/rastertogutenprint.5.3" "$1" "$2" "$3" "$4" "$5"
+else
+  exec "$G/libexec/cups/filter/rastertogutenprint.5.3" "$1" "$2" "$3" "$4" "$5"
+fi
