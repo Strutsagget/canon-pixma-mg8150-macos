@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -28,9 +29,24 @@ NS = {"scan": "http://schemas.hp.com/imaging/escl/2011/05/03",
       "pwg": "http://www.pwg.org/schemas/2010/12/sm"}
 XMLNS = ' xmlns:scan="%s" xmlns:pwg="%s"' % (NS["scan"], NS["pwg"])
 
-jobs = {}           # job id -> settings dict, or None once its page was delivered
+class Job:
+    """One eSCL scan job. The scan starts as soon as the job is created, like
+    a real AirScan scanner; Apple's client polls ScannerStatus for the job's
+    state and only then fetches NextDocument."""
+
+    def __init__(self, settings):
+        self.id = str(uuid.uuid4())
+        self.settings = settings
+        self.created = time.time()
+        self.state = "Processing"     # -> Completed / Aborted / Canceled
+        self.data = None
+        self.ctype = None
+        self.delivered = False
+        self.done = threading.Event()
+
+
+jobs = {}                             # job id -> Job
 scan_lock = threading.Lock()
-busy = threading.Event()
 
 
 def capabilities(host):
@@ -67,9 +83,28 @@ def capabilities(host):
 
 
 def status():
-    state = "Processing" if busy.is_set() else "Idle"
+    busy = any(j.state == "Processing" and not j.done.is_set() for j in jobs.values())
+    infos = []
+    for j in sorted(jobs.values(), key=lambda j: j.created):
+        to_transfer = 1 if j.done.is_set() and j.data and not j.delivered else 0
+        completed = 1 if j.delivered else 0
+        state = j.state
+        if state == "Processing":
+            reason = "JobScanningAndTransferring" if to_transfer else "JobScanning"
+        else:
+            reason = {"Completed": "JobCompletedSuccessfully", "Aborted": "AbortedBySystem",
+                      "Canceled": "JobCanceledByUser"}[state]
+        infos.append(
+            f"<scan:JobInfo><pwg:JobUri>/eSCL/ScanJobs/{j.id}</pwg:JobUri>"
+            f"<pwg:JobUuid>{j.id}</pwg:JobUuid><scan:Age>{int(time.time() - j.created)}</scan:Age>"
+            f"<pwg:ImagesCompleted>{completed}</pwg:ImagesCompleted>"
+            f"<pwg:ImagesToTransfer>{to_transfer}</pwg:ImagesToTransfer>"
+            f"<pwg:JobState>{state}</pwg:JobState>"
+            f"<pwg:JobStateReasons><pwg:JobStateReason>{reason}</pwg:JobStateReason></pwg:JobStateReasons>"
+            f"</scan:JobInfo>")
     return (f'<?xml version="1.0" encoding="UTF-8"?>\n<scan:ScannerStatus{XMLNS}>'
-            f"<pwg:Version>2.63</pwg:Version><pwg:State>{state}</pwg:State></scan:ScannerStatus>")
+            f"<pwg:Version>2.63</pwg:Version><pwg:State>{'Processing' if busy else 'Idle'}</pwg:State>"
+            f"<scan:Jobs>{''.join(infos)}</scan:Jobs></scan:ScannerStatus>")
 
 
 def parse_settings(body):
@@ -104,13 +139,22 @@ def run_scan(device, s):
                "-l", mm(s["x"]), "-t", mm(s["y"]), "-x", mm(s["w"]), "-y", mm(s["h"]),
                "--format=" + fmt, "-o", out]
         with scan_lock:
-            busy.set()
-            try:
-                subprocess.run(cmd, check=True, timeout=600, capture_output=True)
-            finally:
-                busy.clear()
+            subprocess.run(cmd, check=True, timeout=600, capture_output=True)
         with open(out, "rb") as f:
             return f.read(), ("application/pdf" if s["pdf"] else "image/jpeg")
+
+
+def scan_job(device, job):
+    try:
+        job.data, job.ctype = run_scan(device, job.settings)
+    except Exception as e:  # scanner busy / offline
+        sys.stderr.write("scan failed: %r\n" % e)
+        job.state = "Aborted"
+    finally:
+        job.done.set()
+    # Forget finished jobs after a while so the status list stays short.
+    for old in [j for j in jobs.values() if time.time() - j.created > 600]:
+        jobs.pop(old.id, None)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -138,16 +182,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, status())
         m = re.fullmatch(r"/eSCL/ScanJobs/([\w-]+)/NextDocument", path)
         if m:
-            job = m.group(1)
-            if jobs.get(job) is None:          # unknown, or its page was already sent
-                return self.send(404)
-            settings, jobs[job] = jobs[job], None
-            try:
-                data, ctype = run_scan(self.device, settings)
-            except Exception as e:  # scanner busy / offline
-                sys.stderr.write("scan failed: %r\n" % e)
+            job = jobs.get(m.group(1))
+            if job is None or job.delivered or job.state != "Processing":
+                return self.send(404)          # no (more) pages: the client stops here
+            job.done.wait(timeout=600)
+            if not job.data:
                 return self.send(503)
-            return self.send(200, data, ctype)
+            job.delivered = True
+            job.state = "Completed"
+            return self.send(200, job.data, job.ctype)
         if path in ("", "/"):
             return self.send(200, f"<html><body>{NAME} eSCL bridge</body></html>", "text/html")
         self.send(404)
@@ -164,15 +207,20 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             sys.stderr.write("bad ScanSettings: %r\n" % e)
             return self.send(400)
-        job = str(uuid.uuid4())
-        jobs[job] = settings
+        if any(j.state == "Processing" for j in jobs.values()):
+            return self.send(503)              # one scan at a time
+        job = Job(settings)
+        jobs[job.id] = job
+        threading.Thread(target=scan_job, args=(self.device, job), daemon=True).start()
         host = self.headers.get("Host", "localhost")
-        self.send(201, headers=[("Location", f"http://{host}/eSCL/ScanJobs/{job}")])
+        self.send(201, headers=[("Location", f"http://{host}/eSCL/ScanJobs/{job.id}")])
 
     def do_DELETE(self):
         m = re.fullmatch(r"/eSCL/ScanJobs/([\w-]+)", self.path.rstrip("/"))
         if m:
-            jobs.pop(m.group(1), None)
+            job = jobs.get(m.group(1))
+            if job and job.state == "Processing" and not job.delivered:
+                job.state = "Canceled"
             return self.send(200)
         self.send(404)
 
