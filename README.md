@@ -7,6 +7,25 @@ folder holds a native arm64 build of the open-source Gutenprint driver instead.
 - `dist/Canon-PIXMA-MG8150.ppd` – printer description (A4 default, absolute filter path)
 - `install.sh` – installs the driver and adds the queue (`sudo ./install.sh`)
 
+## PPD changes from the generated file
+
+- `*cupsFilter` points at the wrapper `rastertocanon-mg8150` (absolute path).
+- A4 default paper size.
+- Real printable margins (10/10/9/15 pt) instead of Gutenprint's zero
+  margins, otherwise content in the top ~3 mm is cropped (blank text pages).
+- Color defaults matched to Canon's own driver (measured with
+  `tools/bjdensity.py`): `StpColorCorrection=Density`, `StpGCRLower=900`,
+  `StpGCRUpper=1000`, `StpBlackTrans=1000`. Gutenprint's default mixed
+  pigment black into every color, which made prints muddy and banded.
+
+## Debugging tools
+
+`tools/canon-ref/build.sh` builds Canon's cnijfilter 3.40 (MG8100 = model 377)
+in a `linux/amd64` Docker container to make reference jobs; `bjdump.py`,
+`bjblocks.py`, `bjrender.py` and `bjdensity.py` compare jobs. Use the vector
+`tools/colorblocks.py` test page: macOS `cgpdftoraster` misrenders image PDFs
+made by `sips`, which looks exactly like a driver bug.
+
 ## Ink levels
 
 The printer has no SNMP, so macOS can't read supplies on its own. `src/canon-ink.c`
