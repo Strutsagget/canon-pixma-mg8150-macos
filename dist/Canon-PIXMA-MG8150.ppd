@@ -1932,7 +1932,7 @@
 *OrderDependency: 10 AnySetup *StpColorCorrection
 *OPOptionHints StpColorCorrection: "dropdown"
 *StpStpColorCorrection: 0 1 1 0 255 0.000 0.000 0.000
-*DefaultStpColorCorrection: None
+*DefaultStpColorCorrection: Density
 *StpDefaultStpColorCorrection: None
 *StpColorCorrection None/Default: ""
 *StpColorCorrection Accurate/High Accuracy: ""
@@ -3609,7 +3609,7 @@
 *OrderDependency: 10 AnySetup *StpBlackTrans
 *OPOptionHints StpBlackTrans: "slider input spinbox"
 *StpStpBlackTrans: 3 0 1 5 0 0.000 1.000 1.000
-*DefaultStpBlackTrans: None
+*DefaultStpBlackTrans: 1000
 *StpDefaultStpBlackTrans: None
 *StpBlackTrans 0/0.000: ""
 *StpBlackTrans 100/0.100: ""
@@ -3662,7 +3662,7 @@
 *OrderDependency: 10 AnySetup *StpGCRLower
 *OPOptionHints StpGCRLower: "slider input spinbox"
 *StpStpGCRLower: 3 0 1 5 0 0.000 1.000 0.200
-*DefaultStpGCRLower: None
+*DefaultStpGCRLower: 900
 *StpDefaultStpGCRLower: None
 *StpGCRLower 0/0.000: ""
 *StpGCRLower 100/0.100: ""
@@ -3715,7 +3715,7 @@
 *OrderDependency: 10 AnySetup *StpGCRUpper
 *OPOptionHints StpGCRUpper: "slider input spinbox"
 *StpStpGCRUpper: 3 0 1 5 0 0.000 5.000 0.500
-*DefaultStpGCRUpper: None
+*DefaultStpGCRUpper: 1000
 *StpDefaultStpGCRUpper: None
 *StpGCRUpper 0/0.000: ""
 *StpGCRUpper 100/0.100: ""
