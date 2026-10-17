@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Write an A4 vector PDF test page with solid K, C, M, Y and gray blocks.
 
 Usage: python3 tools/colorblocks.py out.pdf && lp -d Canon_MG8150 out.pdf

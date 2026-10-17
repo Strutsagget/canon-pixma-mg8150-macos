@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Measure ink per channel in each colorchart.py patch of a Canon job.
 
 Usage: python3 tools/bjpatches.py job.canon [job2.canon ...]

@@ -1,4 +1,5 @@
 #!/bin/zsh
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Score Gutenprint option sets against Canon's reference ink usage on the
 # colorchart. Usage: tools/tune.sh "opts1" "opts2" ...   (CUPS option strings)
 # Needs .work/t/chart.ras and .work/t/chart-canon.canon (see README).

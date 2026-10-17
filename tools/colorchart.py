@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Color chart for tuning: a 4x4 grid of patches plus black corner markers.
 
 Usage: python3 tools/colorchart.py out.pdf [out.ppm]

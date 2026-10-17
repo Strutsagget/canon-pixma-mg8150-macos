@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Show the internal structure of the first ESC(F raster blocks of a job."""
 import struct, sys
 d = open(sys.argv[1], "rb").read()

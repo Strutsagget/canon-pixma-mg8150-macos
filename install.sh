@@ -1,10 +1,13 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Installs the self-built Gutenprint driver and adds the Canon PIXMA MG8150.
-# Run with: sudo ./install.sh
+# Run with: sudo ./install.sh <printer-ip>    (e.g. sudo ./install.sh 192.168.1.191)
+# Find the IP on the printer: Setup > Device settings > LAN settings > Confirm LAN settings.
 set -euo pipefail
 
 PRINTER_NAME="Canon_MG8150"
-PRINTER_URI="lpd://192.168.1.191/"
+PRINTER_HOST="${1:-192.168.1.191}"
+PRINTER_URI="lpd://$PRINTER_HOST/"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 if [[ $EUID -ne 0 ]]; then
@@ -26,7 +29,6 @@ mkdir -p /Library/Printers/Gutenprint/var
 chown _lp:_lp /Library/Printers/Gutenprint/var
 PLIST=/Library/LaunchDaemons/se.pija.canon-ink.plist
 launchctl bootout system "$PLIST" 2>/dev/null || true
-PRINTER_HOST="${PRINTER_URI#lpd://}"; PRINTER_HOST="${PRINTER_HOST%%/*}"
 sed "s#192\.168\.1\.191#$PRINTER_HOST#" "$HERE/dist/se.pija.canon-ink.plist" > "$PLIST"
 chown root:wheel "$PLIST"
 chmod 644 "$PLIST"
@@ -37,7 +39,7 @@ lpadmin -p "$PRINTER_NAME" -E \
   -v "$PRINTER_URI" \
   -P "$HERE/dist/Canon-PIXMA-MG8150.ppd" \
   -D "Canon PIXMA MG8150" \
-  -L "Gutenprint 5.3.5 (self-built)" \
+  -L "Gutenprint 5.3.5 (canon-pixma-mg8150-macos)" \
   -o printer-is-shared=false
 lpoptions -d "$PRINTER_NAME"
 

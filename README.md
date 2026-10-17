@@ -1,85 +1,145 @@
-# Canon PIXMA MG8150 driver for Apple Silicon macOS
+# Canon PIXMA MG8150 on Apple Silicon macOS
 
-Canon's Mac driver for the MG8150 stops at macOS 10.12 and is Intel-only. This
-folder holds a native arm64 build of the open-source Gutenprint driver instead.
+Printing, ink levels and scanning for the **Canon PIXMA MG8150** (MG8100 series)
+on current macOS, on Apple Silicon (arm64).
 
-- `dist/Gutenprint/` – driver, installed to `/Library/Printers/Gutenprint`
-- `dist/Canon-PIXMA-MG8150.ppd` – printer description (A4 default, absolute filter path)
-- `install.sh` – installs the driver and adds the queue (`sudo ./install.sh`)
+Canon's Mac driver for this printer stops at macOS 10.12 and is Intel-only, and
+Homebrew's Gutenprint package is disabled. This repository is a native build of
+the open-source [Gutenprint](https://gimp-print.sourceforge.io/) driver, plus the
+pieces needed to make it behave like Canon's own driver:
 
-## PPD changes from the generated file
+| | |
+|---|---|
+| **Printing** | Native arm64 Gutenprint 5.3.5 over Wi-Fi (LPD) |
+| **Colors** | Matched to Canon's own driver with a measured 3D color table |
+| **Ink levels** | Shown in System Settings → Printers & Scanners → Supply Levels |
+| **Scanning** | Works in Image Capture and Preview (eSCL/AirScan bridge to SANE) |
 
-- `*cupsFilter` points at the wrapper `rastertocanon-mg8150` (absolute path).
-- A4 default paper size.
-- Real printable margins (10/10/9/15 pt) instead of Gutenprint's zero
-  margins, otherwise content in the top ~3 mm is cropped (blank text pages).
-- Color defaults matched to Canon's own driver (measured with
-  `tools/bjdensity.py`): `StpColorCorrection=Density`, `StpGCRLower=900`,
-  `StpGCRUpper=1000`, `StpBlackTrans=1000`. Gutenprint's default mixed
-  pigment black into every color, which made prints muddy and banded.
+Tested on macOS 27 (Apple Silicon) with an MG8150 on Wi-Fi. Other MG8100-series
+printers (MG8120, MG8130, MG8140) use the same driver and will probably work.
+Not affiliated with Canon.
 
-## Canon colors (3D LUT)
+## Install
 
-In Density mode Gutenprint is linear (ink = 1 - value), so Canon's color
-rendering is cloned with a lookup table: `tools/buildlut.py chart` writes a
-9x9x9 patch chart, Canon's `cifmg8100` (Docker, see below) renders it,
-`tools/buildlut.py lut` measures the CMY ink per patch and inverts it into
-`dist/Gutenprint/share/mg8150-canon.lut`. `src/rgblut.c` applies it to the
-CUPS raster in front of Gutenprint (wrapper filter; any non-default
-`StpColorCorrection` skips it). Check with `tools/colorchart.py` +
-`tools/bjpatches.py`. Build: `clang -O2 -o dist/Gutenprint/bin/rgblut src/rgblut.c -lcups`
+You need the printer's IP address. On the printer: **Setup → Device settings →
+LAN settings → Confirm LAN settings**. Give it a fixed address (a DHCP reservation
+in your router) so it doesn't change.
 
-## Debugging tools
+### Printer and ink levels
 
-`tools/canon-ref/build.sh` builds Canon's cnijfilter 3.40 (MG8100 = model 377)
-in a `linux/amd64` Docker container to make reference jobs; `bjdump.py`,
-`bjblocks.py`, `bjrender.py` and `bjdensity.py` compare jobs. Use the vector
-`tools/colorblocks.py` test page: macOS `cgpdftoraster` misrenders image PDFs
-made by `sips`, which looks exactly like a driver bug.
+```bash
+git clone https://github.com/Strutsagget/canon-pixma-mg8150-macos.git
+cd canon-pixma-mg8150-macos
+sudo ./install.sh 192.168.1.191
+```
 
-## Ink levels
+This copies the driver to `/Library/Printers/Gutenprint`, starts a small
+background job that reads ink levels, and adds the queue **Canon PIXMA MG8150**
+as the default printer. It then appears in every app's print dialog.
 
-The printer has no SNMP, so macOS can't read supplies on its own. `src/canon-ink.c`
-asks the printer over Canon's BJNP protocol (UDP 8611, command `0x20`) and parses
-`CIR:` (remaining %) and `CTK:` (`IO` = ink out). The PPD's filter is the wrapper
-`rastertocanon-mg8150`, which runs it before and after Gutenprint and emits
-`ATTR: marker-*` lines, so Supply Levels updates on every print.
-macOS's cupsd exits when idle and forgets those attributes, so the PPD also
-advertises `*cupsCommands: "ReportLevels"`: opening Supply Levels makes macOS
-send that command, and `commandtocanon-mg8150` answers it from the same cache
-without printing anything. From a terminal:
+### Scanner (optional)
+
+```bash
+brew install sane-backends python
+scanner/install-scanner.sh 192.168.1.191
+```
+
+This builds `~/Applications/MG8150 Scanner.app` and starts it at login (no
+sudo). On the first scan macOS asks whether **MG8150 Scanner** may access
+devices on your local network: click **Allow**. Then scan from:
+
+- **Image Capture**: pick *Canon PIXMA MG8150* under *Shared*.
+- **Preview**: *File → Import from Canon PIXMA MG8150*.
+
+A full A4 page at 300 dpi takes about a minute over Wi-Fi.
+
+### Uninstall
+
+```bash
+sudo lpadmin -x Canon_MG8150
+sudo launchctl bootout system /Library/LaunchDaemons/se.pija.canon-ink.plist
+sudo rm -rf /Library/Printers/Gutenprint /Library/LaunchDaemons/se.pija.canon-ink.plist
+launchctl bootout gui/$(id -u)/se.pija.mg8150-escl
+rm -rf ~/Applications/"MG8150 Scanner.app" ~/Library/LaunchAgents/se.pija.mg8150-escl.plist
+```
+
+## How it works
+
+### Printing
+
+`dist/Gutenprint/` is Gutenprint 5.3.5 built for arm64 (see [Building](#building)).
+The printer description `dist/Canon-PIXMA-MG8150.ppd` was generated by Gutenprint
+and then changed:
+
+- **Filter**: points at the wrapper `rastertocanon-mg8150` by absolute path
+  (macOS protects `/usr/libexec/cups`, so third-party filters live elsewhere).
+- **Margins**: the real printable area (10/10/9/15 pt) instead of Gutenprint's
+  zero margins. With zero margins macOS put text in the top ~3 mm, which the
+  printer can't reach and Gutenprint cropped: text pages came out blank.
+- **Color defaults**: `StpColorCorrection=Density`, `StpGCRLower=900`,
+  `StpGCRUpper=1000`, `StpBlackTrans=1000`. Gutenprint's defaults mixed pigment
+  black into every color, which made prints dark and banded.
+- **A4** default paper size.
+
+### Colors that match Canon's driver
+
+In *Density* mode Gutenprint is linear: ink = 1 − value per channel. That makes
+it possible to clone Canon's color rendering:
+
+1. `tools/buildlut.py chart` writes a 9×9×9 (729 colors) patch chart.
+2. Canon's own Linux driver renders it (see [Reference jobs](#reference-jobs-from-canons-driver)).
+3. `tools/buildlut.py lut` measures the cyan/magenta/yellow ink Canon lays down
+   in each patch and inverts that into `dist/Gutenprint/share/mg8150-canon.lut`.
+4. `src/rgblut.c` applies the table to each page (trilinear interpolation,
+   ~0.4 s per A4 page) before Gutenprint sees it.
+
+Measured on a 16-color chart, ink use now matches Canon's within a few percent;
+before, mid-tones used up to three times as much ink. Choosing any other *Color
+Correction* in the print dialog bypasses the table.
+
+### Ink levels
+
+The printer has no SNMP, which is how macOS normally reads supplies. It does
+answer Canon's BJNP protocol: UDP port 8611, command `0x20` returns XML with
+`CIR:` (remaining ink in %) and `CTK:` (`IO` = ink out). `src/canon-ink.c`
+reads that and prints CUPS `ATTR: marker-*` lines.
+
+CUPS runs filters in a sandbox without network access, so a LaunchDaemon
+(`dist/se.pija.canon-ink.plist`) polls the printer every 5 minutes into a cache
+file. The print filter replays the cache on every job, and the PPD advertises
+`*cupsCommands: "ReportLevels"`, so macOS asks for fresh levels whenever you open
+*Supply Levels*. `commandtocanon-mg8150` answers that without printing anything.
+From a terminal:
 
 ```bash
 /Library/Printers/Gutenprint/bin/canon-ink 192.168.1.191
 ```
 
-Build: `clang -O2 -Wall -Wextra -o dist/Gutenprint/bin/canon-ink src/canon-ink.c`
+### Scanner
 
-## Scanner
+The MG8150 predates AirScan, so macOS can't use it directly.
+`scanner/escl-bridge.py` serves the eSCL (AirScan) HTTP API on port 8090,
+advertises itself over Bonjour (`_uscan._tcp`), and runs SANE's `scanimage`
+(`pixma` backend, BJNP over Wi-Fi) for each scan.
 
-`scanner/escl-bridge.py` makes the scanner appear in Image Capture and Preview.
-It serves the eSCL (AirScan) HTTP API on port 8090, advertises `_uscan._tcp`
-over Bonjour, and runs SANE's `scanimage` (pixma backend over BJNP) for each
-scan. Setup: `brew install sane-backends`, add `bjnp://192.168.1.191` to
-`/opt/homebrew/etc/sane.d/pixma.conf`, then `scanner/install-scanner.sh`
-(per-user LaunchAgent, no sudo). Log: `~/Library/Logs/mg8150-escl.log`.
+Two macOS details matter. Apple's scanner client polls the scanner status for
+each job's state (`JobInfo`, `ImagesToTransfer`) and cancels jobs that don't
+appear there. And macOS only grants Local Network access to processes that
+belong to an app: a bare `python3` started by launchd gets *No route to host*.
+`scanner/launcher.c` is therefore built into a small signed app that runs the
+bridge as a child process. Log: `~/Library/Logs/mg8150-escl.log`.
 
-The installer wraps the bridge in `~/Applications/MG8150 Scanner.app`: macOS
-only grants Local Network access to processes that belong to an app (a bare
-`python3` from launchd gets "No route to host"). On the first scan macOS asks
-once to allow it. Apple's eSCL client also needs each job's state in
-ScannerStatus (`JobInfo`, `ImagesToTransfer`) or it cancels the job.
+The bridge listens on your local network, like a real network scanner, so other
+devices there can scan too.
 
-## Network
+## Building
 
-The printer is reached over Wi-Fi through LPD (`lpd://192.168.1.191/`). If its IP
-changes, give it a DHCP reservation in the router, or update `PRINTER_URI` in
-`install.sh` and run it again.
+Everything in `dist/` can be rebuilt from source.
 
-## Rebuilding
-
-Source: `gutenprint-5.3.5.tar.xz` from https://sourceforge.net/projects/gimp-print/
-(sha256 `f5a9f47de28530b1ae2069cfbc647a9a641baeeabe809bb0ef2b3ec5b9668d70`).
+**Gutenprint 5.3.5**: [`gutenprint-5.3.5.tar.xz`](https://sourceforge.net/projects/gimp-print/files/gutenprint-5.3/5.3.5/)
+(sha256 `f5a9f47de28530b1ae2069cfbc647a9a641baeeabe809bb0ef2b3ec5b9668d70`, also
+attached to this repository's [releases](https://github.com/Strutsagget/canon-pixma-mg8150-macos/releases)).
+The source is unmodified; only the build is configured for macOS:
 
 ```bash
 ./configure --prefix=/Library/Printers/Gutenprint --disable-shared --enable-static \
@@ -97,6 +157,56 @@ STP_DATA_PATH=stage/Library/Printers/Gutenprint/share/gutenprint/5.3/xml \
   stage/Library/Printers/Gutenprint/sbin/cups-genppd.5.3 -Z -p ppd -l C bjc-PIXMA-MG8150
 ```
 
-Then in the generated PPD, make `*cupsFilter` point at
-`/Library/Printers/Gutenprint/libexec/cups/filter/rastertogutenprint.5.3`
-and set the `Default*` page size entries to `A4`.
+Then apply the PPD changes listed under [Printing](#printing).
+
+**This project's programs**:
+
+```bash
+clang -O2 -Wall -Wextra -o dist/Gutenprint/bin/canon-ink src/canon-ink.c
+clang -O2 -Wall -Wextra -Wno-deprecated-declarations -o dist/Gutenprint/bin/rgblut src/rgblut.c -lcups
+```
+
+## Reference jobs from Canon's driver
+
+`tools/canon-ref/build.sh` builds Canon's Linux driver *cnijfilter 3.40*
+(MG8100 = model 377) in a `linux/amd64` Docker container. Canon's driver is not
+included here. Download `cnijfilter-source-3.40-1.tar.gz` from Canon
+(`https://gdlp01.c-wss.com/gds/0/0100003020/01/cnijfilter-source-3.40-1.tar.gz`,
+md5 `609975a05d6050fcca88f312d3f35c6a`) and unpack it into `.work/canon/`:
+
+```bash
+docker run --platform linux/amd64 --name canonref \
+  -v $PWD/.work/canon:/canon:ro -v $PWD/tools/canon-ref:/tools:ro \
+  ubuntu:14.04 bash /tools/build.sh
+docker commit canonref canonref:built
+docker run --rm --platform linux/amd64 -v $PWD/.work/t:/t canonref:built \
+  bash -c 'cifmg8100 --papersize a4 --media plain --imageres 150 < /t/chart.ppm > /t/chart-canon.canon'
+```
+
+Tools for comparing print jobs (all plain Python 3):
+
+| Tool | Purpose |
+|---|---|
+| `bjdump.py` | List the command stream of a job |
+| `bjblocks.py` | Show the inside of the `ESC ( F` raster blocks |
+| `bjrender.py` | Decode each ink channel into an image |
+| `bjdensity.py`, `bjpatches.py` | Measure ink per channel in test patches |
+| `colorblocks.py`, `colorchart.py`, `textsizes.py` | Vector test pages |
+| `tune.sh` | Score Gutenprint option sets against Canon's ink use |
+
+Use vector test pages. macOS `cgpdftoraster` misrenders the image PDFs that
+`sips` makes from PPM files, and the result looks exactly like a driver bug.
+
+## License
+
+This project is licensed under the **GNU General Public License v2 or later**
+(see [LICENSE](LICENSE)), the same license as Gutenprint.
+
+- `dist/Gutenprint/` contains binaries built from unmodified Gutenprint 5.3.5
+  (GPL-2.0-or-later, © the Gutenprint authors). The exact source is linked
+  above and attached to the releases. Gutenprint's own license, authors and
+  documentation are in `dist/Gutenprint/share/gutenprint/doc/`.
+- `mg8150-canon.lut` contains color measurements of the output of Canon's
+  driver. No Canon code or files are included.
+- Canon and PIXMA are trademarks of Canon Inc. This project is not affiliated
+  with or endorsed by Canon.

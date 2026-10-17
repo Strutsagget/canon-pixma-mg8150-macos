@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Build an RGB->RGB 3D LUT that makes Gutenprint (Density mode, which is
 linear: ink = 1 - value) lay down the same CMY ink as Canon's own driver.
 

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * canon-ink - read ink levels from a Canon PIXMA over BJNP (UDP 8611).
  *

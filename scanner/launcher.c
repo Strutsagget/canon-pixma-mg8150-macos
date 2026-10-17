@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * MG8150 Scanner.app launcher.
  *
@@ -23,7 +24,7 @@ static void forward(int sig)
     kill(child, sig);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
   char exe[4096], script[4096];
   uint32_t size = sizeof(exe);
@@ -32,8 +33,13 @@ int main(void)
   /* .../MG8150 Scanner.app/Contents/MacOS/launcher -> ../Resources/escl-bridge.py */
   snprintf(script, sizeof(script), "%s/../Resources/escl-bridge.py", dirname(exe));
 
-  char *argv[] = {"/opt/homebrew/bin/python3", "-I", script, NULL};
-  if (posix_spawn(&child, argv[0], NULL, NULL, argv, environ) != 0) {
+  /* python3 -I escl-bridge.py [extra args from the LaunchAgent, e.g. --device] */
+  char *args[16] = {"/opt/homebrew/bin/python3", "-I", script};
+  int n = 3;
+  for (int i = 1; i < argc && n < 15; i++)
+    args[n++] = argv[i];
+  args[n] = NULL;
+  if (posix_spawn(&child, args[0], NULL, NULL, args, environ) != 0) {
     perror("posix_spawn");
     return 1;
   }

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Summarise a Canon BJ/IVEC print job: setup commands and raster structure.
 
 Usage: python3 tools/bjdump.py job.canon

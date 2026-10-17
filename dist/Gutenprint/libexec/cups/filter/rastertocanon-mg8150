@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
 # CUPS filter for the PIXMA MG8150: runs Gutenprint and reports ink levels
 # as marker-* attributes, so macOS can show Supply Levels.
 #

@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
 # CUPS command filter for the PIXMA MG8150. Answers "ReportLevels" (sent by
 # macOS and by `lp -o document-format=application/vnd.cups-command`) with the
 # ink levels cached by the se.pija.canon-ink LaunchDaemon. Prints nothing.

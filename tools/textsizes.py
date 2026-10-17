@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Write an A4 PDF with Helvetica text from 6 to 72 pt, black and in color.
 
 Usage: python3 tools/textsizes.py out.pdf && lp -d Canon_MG8150 out.pdf

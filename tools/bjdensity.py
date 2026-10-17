@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Ink density per channel inside rectangles of a Canon multiraster job.
 
 Usage: python3 tools/bjdensity.py job.canon

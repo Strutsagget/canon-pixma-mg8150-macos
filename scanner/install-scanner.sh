@@ -1,14 +1,20 @@
 #!/bin/zsh
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Builds "MG8150 Scanner.app" (a tiny launcher for the eSCL bridge) into
 # ~/Applications and runs it as a per-user LaunchAgent, so the scanner shows
 # up in Image Capture and Preview. No sudo needed.
 #
 # The app wrapper is required: macOS only grants Local Network access to
 # processes that belong to an app, and asks once ("Allow") on first scan.
-# Requires: brew install sane-backends python, and bjnp://<printer-ip> in
-# /opt/homebrew/etc/sane.d/pixma.conf.
+# Usage: scanner/install-scanner.sh <printer-ip>
+# Requires: brew install sane-backends python
 set -e
 HERE="${0:A:h}"
+PRINTER_HOST="${1:-192.168.1.191}"
+PIXMA_CONF="$(brew --prefix)/etc/sane.d/pixma.conf"
+
+# Tell SANE's pixma backend where the scanner is (BJNP over the network).
+grep -qx "bjnp://$PRINTER_HOST" "$PIXMA_CONF" || echo "bjnp://$PRINTER_HOST" >> "$PIXMA_CONF"
 LABEL=se.pija.mg8150-escl
 APP="$HOME/Applications/MG8150 Scanner.app"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
@@ -46,7 +52,10 @@ cat > "$PLIST" <<EOF
 <dict>
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
-  <array><string>$APP/Contents/MacOS/launcher</string></array>
+  <array>
+    <string>$APP/Contents/MacOS/launcher</string>
+    <string>--device</string><string>pixma:MG8100_$PRINTER_HOST</string>
+  </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>StandardErrorPath</key><string>$HOME/Library/Logs/mg8150-escl.log</string>

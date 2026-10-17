@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Decode a Canon multiraster job (ESC(L / ESC(F / ESC(e) into per-channel
 coverage images, to see what a driver actually asks the printer to print.
 

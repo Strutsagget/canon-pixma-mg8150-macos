@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Runs inside linux/amd64 ubuntu:14.04. Builds Canon's cnijfilter 3.40 for
 # the MG8100 (model 377) so we can produce reference print jobs.
 set -euxo pipefail

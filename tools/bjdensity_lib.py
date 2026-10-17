@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Decode a Canon multiraster job (ESC(L / ESC(F / ESC(e / ESC(J) into lines.
 
 decode(job_bytes) -> {channel: {raster_line: bytes}}

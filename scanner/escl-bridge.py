@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 """eSCL (AirScan) bridge for the Canon PIXMA MG8150 scanner.
 
 macOS Image Capture and Preview find eSCL scanners over Bonjour (_uscan._tcp).

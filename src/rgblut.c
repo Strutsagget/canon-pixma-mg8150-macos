@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * rgblut - apply a 3D RGB lookup table to a CUPS raster stream.
  *
