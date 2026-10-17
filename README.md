@@ -64,6 +64,12 @@ scan. Setup: `brew install sane-backends`, add `bjnp://192.168.1.191` to
 `/opt/homebrew/etc/sane.d/pixma.conf`, then `scanner/install-scanner.sh`
 (per-user LaunchAgent, no sudo). Log: `~/Library/Logs/mg8150-escl.log`.
 
+The installer wraps the bridge in `~/Applications/MG8150 Scanner.app`: macOS
+only grants Local Network access to processes that belong to an app (a bare
+`python3` from launchd gets "No route to host"). On the first scan macOS asks
+once to allow it. Apple's eSCL client also needs each job's state in
+ScannerStatus (`JobInfo`, `ImagesToTransfer`) or it cancels the job.
+
 ## Network
 
 The printer is reached over Wi-Fi through LPD (`lpd://192.168.1.191/`). If its IP
