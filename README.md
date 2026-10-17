@@ -32,13 +32,26 @@ The printer has no SNMP, so macOS can't read supplies on its own. `src/canon-ink
 asks the printer over Canon's BJNP protocol (UDP 8611, command `0x20`) and parses
 `CIR:` (remaining %) and `CTK:` (`IO` = ink out). The PPD's filter is the wrapper
 `rastertocanon-mg8150`, which runs it before and after Gutenprint and emits
-`ATTR: marker-*` lines, so Supply Levels updates on every print. From a terminal:
+`ATTR: marker-*` lines, so Supply Levels updates on every print.
+macOS's cupsd exits when idle and forgets those attributes, so the PPD also
+advertises `*cupsCommands: "ReportLevels"`: opening Supply Levels makes macOS
+send that command, and `commandtocanon-mg8150` answers it from the same cache
+without printing anything. From a terminal:
 
 ```bash
 /Library/Printers/Gutenprint/bin/canon-ink 192.168.1.191
 ```
 
 Build: `clang -O2 -Wall -Wextra -o dist/Gutenprint/bin/canon-ink src/canon-ink.c`
+
+## Scanner
+
+`scanner/escl-bridge.py` makes the scanner appear in Image Capture and Preview.
+It serves the eSCL (AirScan) HTTP API on port 8090, advertises `_uscan._tcp`
+over Bonjour, and runs SANE's `scanimage` (pixma backend over BJNP) for each
+scan. Setup: `brew install sane-backends`, add `bjnp://192.168.1.191` to
+`/opt/homebrew/etc/sane.d/pixma.conf`, then `scanner/install-scanner.sh`
+(per-user LaunchAgent, no sudo). Log: `~/Library/Logs/mg8150-escl.log`.
 
 ## Network
 
